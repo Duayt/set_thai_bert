@@ -159,15 +159,19 @@ def main(args):
 
     # If output_dir not provided, a folder will be generated in pwd
     if not args.output_dir:
-        args.output_dir = os.path.join("./results", f"{args.task}_{args.model_type}_{time.strftime('%Y%m%d_%H%M%S')}",)
+        args.output_dir = os.path.join("./results", f"{args.task}_{time.strftime('%Y%m%d_%H%M%S')}",)
         os.makedirs(args.output_dir)
     model = SummarizationTrainer(args)
     trainer = generic_train(model, args)
 
     # Optionally, predict on dev set and write to output_dir
     if args.do_predict:
+        # See https://github.com/huggingface/transformers/issues/3159
+        # pl use this format to create a checkpoint:
+        # https://github.com/PyTorchLightning/pytorch-lightning/blob/master\
+        # /pytorch_lightning/callbacks/model_checkpoint.py#L169
         checkpoints = list(sorted(glob.glob(os.path.join(args.output_dir, "checkpointepoch=*.ckpt"), recursive=True)))
-        SummarizationTrainer.load_from_checkpoint(checkpoints[-1])
+        model = model.load_from_checkpoint(checkpoints[-1])
         trainer.test(model)
 
 
