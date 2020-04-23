@@ -5,7 +5,7 @@ import random
 import numpy as np
 import pytorch_lightning as pl
 import torch
-
+from glue import thaibert_tokenization
 from transformers import (
     ALL_PRETRAINED_MODEL_ARCHIVE_MAP,
     AdamW,
@@ -21,9 +21,7 @@ from transformers import (
 )
 from transformers.modeling_auto import MODEL_MAPPING
 
-
 logger = logging.getLogger(__name__)
-
 
 ALL_MODELS = tuple(ALL_PRETRAINED_MODEL_ARCHIVE_MAP)
 MODEL_CLASSES = tuple(m.model_type for m in MODEL_MAPPING)
@@ -42,7 +40,7 @@ def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if args.n_gpu > 0:
+    if len(args.n_gpu) > 0:
         torch.cuda.manual_seed_all(args.seed)
 
 
@@ -60,11 +58,15 @@ class BaseTransformer(pl.LightningModule):
             cache_dir=cache_dir,
             **config_kwargs,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.hparams.tokenizer_name if self.hparams.tokenizer_name else self.hparams.model_name_or_path,
-            do_lower_case=self.hparams.do_lower_case,
-            cache_dir=cache_dir,
-        )
+        if hparams.task == "THAI":
+            tokenizer = thaibert_tokenization.ThaiTokenizer(vocab_file=self.hparams.vocab_file,
+                                                            spm_file=self.hparams.spm_file)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(
+                self.hparams.tokenizer_name if self.hparams.tokenizer_name else self.hparams.model_name_or_path,
+                do_lower_case=self.hparams.do_lower_case,
+                cache_dir=cache_dir,
+            )
         model = MODEL_MODES[mode].from_pretrained(
             self.hparams.model_name_or_path,
             from_tf=bool(".ckpt" in self.hparams.model_name_or_path),
@@ -119,9 +121,9 @@ class BaseTransformer(pl.LightningModule):
         dataloader = self.load_dataset("train", train_batch_size)
 
         t_total = (
-            (len(dataloader.dataset) // (train_batch_size * max(1, self.hparams.n_gpu)))
-            // self.hparams.gradient_accumulation_steps
-            * float(self.hparams.num_train_epochs)
+                (len(dataloader.dataset) // (train_batch_size * max(1, len(self.hparams.n_gpu))))
+                // self.hparams.gradient_accumulation_steps
+                * float(self.hparams.num_train_epochs)
         )
         scheduler = get_linear_schedule_with_warmup(
             self.opt, num_warmup_steps=self.hparams.warmup_steps, num_training_steps=t_total
@@ -236,10 +238,11 @@ def add_generic_args(parser, root_dir):
         type=str,
         default="O1",
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-        "See details at https://nvidia.github.io/apex/amp.html",
+             "See details at https://nvidia.github.io/apex/amp.html",
     )
 
-    parser.add_argument("--n_gpu", type=int, default=1)
+    # parser.add_argument("--n_gpu", type=int, default=1)
+    parser.add_argument("-n", "--n_gpu", nargs='+', type=int, default=[2], help="specified device number")
     parser.add_argument("--n_tpu_cores", type=int, default=0)
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
@@ -292,12 +295,11 @@ def generic_train(model, args):
 
     if args.n_tpu_cores > 0:
         global xm
-        import torch_xla.core.xla_model as xm
 
         train_params["num_tpu_cores"] = args.n_tpu_cores
         train_params["gpus"] = 0
 
-    if args.n_gpu > 1:
+    if len(args.n_gpu) > 1:
         train_params["distributed_backend"] = "ddp"
 
     trainer = pl.Trainer(**train_params)

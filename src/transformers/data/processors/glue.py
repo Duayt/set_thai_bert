@@ -23,7 +23,6 @@ from ...file_utils import is_tf_available
 from ...tokenization_utils import PreTrainedTokenizer
 from .utils import DataProcessor, InputExample, InputFeatures
 
-
 if is_tf_available():
     import tensorflow as tf
 
@@ -31,12 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 def glue_convert_examples_to_features(
-    examples: Union[List[InputExample], "tf.data.Dataset"],
-    tokenizer: PreTrainedTokenizer,
-    max_length: Optional[int] = None,
-    task=None,
-    label_list=None,
-    output_mode=None,
+        examples: Union[List[InputExample], "tf.data.Dataset"],
+        tokenizer: PreTrainedTokenizer,
+        max_length: Optional[int] = None,
+        task=None,
+        label_list=None,
+        output_mode=None,
 ):
     """
     Loads a data file into a list of ``InputFeatures``
@@ -67,7 +66,7 @@ def glue_convert_examples_to_features(
 if is_tf_available():
 
     def _tf_glue_convert_examples_to_features(
-        examples: tf.data.Dataset, tokenizer: PreTrainedTokenizer, task=str, max_length: Optional[int] = None,
+            examples: tf.data.Dataset, tokenizer: PreTrainedTokenizer, task=str, max_length: Optional[int] = None,
     ) -> tf.data.Dataset:
         """
         Returns:
@@ -104,12 +103,12 @@ if is_tf_available():
 
 
 def _glue_convert_examples_to_features(
-    examples: List[InputExample],
-    tokenizer: PreTrainedTokenizer,
-    max_length: Optional[int] = None,
-    task=None,
-    label_list=None,
-    output_mode=None,
+        examples: List[InputExample],
+        tokenizer: PreTrainedTokenizer,
+        max_length: Optional[int] = None,
+        task=None,
+        label_list=None,
+        output_mode=None,
 ):
     if max_length is None:
         max_length = tokenizer.max_len
@@ -503,6 +502,43 @@ class WnliProcessor(DataProcessor):
         return examples
 
 
+class THAIProcessor(DataProcessor):
+    """Processor for the CoLA data set (GLUE version)."""
+
+    def get_example_from_tensor_dict(self, tensor_dict):
+        """See base class."""
+        return InputExample(
+            tensor_dict["idx"].numpy(),
+            tensor_dict["sentence"].numpy().decode("utf-8"),
+            None,
+            str(tensor_dict["label"].numpy()),
+        )
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_labels(self):
+        """See base class."""
+        return [None]
+
+    def _create_examples(self, lines, set_type):
+        """Creates examples for the training and dev sets."""
+        examples = []
+        for (i, line) in enumerate(lines):
+            if i == 0:
+                continue
+            guid = "%s-%s" % (set_type, i)
+            text_a = line[3]
+            label = line[-3]  # c_chg_ratio
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+        return examples
+
+
 glue_tasks_num_labels = {
     "cola": 2,
     "mnli": 3,
@@ -513,6 +549,7 @@ glue_tasks_num_labels = {
     "qnli": 2,
     "rte": 2,
     "wnli": 2,
+    "thai": 1,
 }
 
 glue_processors = {
@@ -526,6 +563,7 @@ glue_processors = {
     "qnli": QnliProcessor,
     "rte": RteProcessor,
     "wnli": WnliProcessor,
+    "thai": THAIProcessor,
 }
 
 glue_output_modes = {
@@ -539,4 +577,5 @@ glue_output_modes = {
     "qnli": "classification",
     "rte": "classification",
     "wnli": "classification",
+    "thai": "regression",
 }

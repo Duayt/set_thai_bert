@@ -145,3 +145,5 @@ debug.env
 
 #ctags
 tags
+
+*.DS_Store

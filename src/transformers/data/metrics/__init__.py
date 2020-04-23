@@ -16,7 +16,8 @@
 
 try:
     from scipy.stats import pearsonr, spearmanr
-    from sklearn.metrics import matthews_corrcoef, f1_score
+    from sklearn.metrics import matthews_corrcoef, f1_score, mean_squared_error, mean_absolute_error
+    from math import sqrt
 
     _has_sklearn = True
 except (AttributeError, ImportError):
@@ -32,6 +33,7 @@ if _has_sklearn:
     def simple_accuracy(preds, labels):
         return (preds == labels).mean()
 
+
     def acc_and_f1(preds, labels):
         acc = simple_accuracy(preds, labels)
         f1 = f1_score(y_true=labels, y_pred=preds)
@@ -41,6 +43,7 @@ if _has_sklearn:
             "acc_and_f1": (acc + f1) / 2,
         }
 
+
     def pearson_and_spearman(preds, labels):
         pearson_corr = pearsonr(preds, labels)[0]
         spearman_corr = spearmanr(preds, labels)[0]
@@ -49,6 +52,19 @@ if _has_sklearn:
             "spearmanr": spearman_corr,
             "corr": (pearson_corr + spearman_corr) / 2,
         }
+
+
+    def root_mean_square_error(preds, labels):
+        return sqrt(mean_squared_error(labels, preds))
+
+
+
+    def simple_regression(preds, labels):
+        rmse = root_mean_square_error(preds, labels)
+        mae = mean_absolute_error(labels, preds)
+        return {'rmse': rmse,
+                'mae': mae}
+
 
     def glue_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)
@@ -71,11 +87,15 @@ if _has_sklearn:
         elif task_name == "rte":
             return {"acc": simple_accuracy(preds, labels)}
         elif task_name == "wnli":
+
             return {"acc": simple_accuracy(preds, labels)}
         elif task_name == "hans":
             return {"acc": simple_accuracy(preds, labels)}
+        elif task_name == "thai":
+            return simple_regression(preds, labels)
         else:
             raise KeyError(task_name)
+
 
     def xnli_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)

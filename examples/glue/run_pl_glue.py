@@ -15,12 +15,10 @@ from transformers import glue_output_modes
 from transformers import glue_processors as processors
 from transformers import glue_tasks_num_labels
 
-
 logger = logging.getLogger(__name__)
 
 
 class GLUETransformer(BaseTransformer):
-
     mode = "sequence-classification"
 
     def __init__(self, hparams):
@@ -131,7 +129,8 @@ class GLUETransformer(BaseTransformer):
 
     def test_epoch_end(self, outputs):
         # updating to test_epoch_end instead of deprecated test_end
-        ret, predictions, targets = self._eval_end(outputs)
+        ret, predictions, targets = self.\
+            _eval_end(outputs)
 
         # Converting to the dic required by pl
         # https://github.com/PyTorchLightning/pytorch-lightning/blob/master/\
@@ -149,7 +148,7 @@ class GLUETransformer(BaseTransformer):
             default=128,
             type=int,
             help="The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded.",
+                 "than this will be truncated, sequences shorter will be padded.",
         )
 
         parser.add_argument(
@@ -167,19 +166,42 @@ class GLUETransformer(BaseTransformer):
         parser.add_argument(
             "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets"
         )
-
+        # parser.add_argument("-n", "--n_gpu", nargs='+', type=int, default=[2], help="specified device number")
+        # parser.add_argument('-a', '--arg', nargs='+', type=int, default=[1, 2, 3])
+        parser.add_argument(
+            "--vocab_file", default="th_wiki_bpe/th.wiki.bpe.op25000.vocab", type=str, help="vocab_file",
+        )
+        parser.add_argument(
+            "--spm_file", default="th_wiki_bpe/th.wiki.bpe.op25000.model", type=str, help="Tspm_file",
+        )
         return parser
+
+
+# def set_gpu(device_no):
+#     if torch.cuda.is_available():
+#         os.environ["CUDA_VISIBLE_DEVICES"] = str(device_no[0])
+#         torch.cuda.set_device(device_no[0])
+#         logger.info(f'Current Device {torch.cuda.current_device()}')
+#         logger.info(f'Device count {torch.cuda.device_count()}')
+#         logger.info(f'Currect device name: {torch.cuda.get_device_name("cuda")}')
+#
+#         device = 'cuda'
+#         return device
+#     else:
+#         logger.info('No CUDA')
+#         device = 'cpu'
+#         return device
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     add_generic_args(parser, os.getcwd())
     parser = GLUETransformer.add_model_specific_args(parser, os.getcwd())
-    args = parser.parse_args()
 
+    args = parser.parse_args()
     # If output_dir not provided, a folder will be generated in pwd
     if args.output_dir is None:
-        args.output_dir = os.path.join("./results", f"{args.task}_{args.model_type}_{time.strftime('%Y%m%d_%H%M%S')}",)
+        args.output_dir = os.path.join("./results", f"{args.task}_{args.model_type}_{time.strftime('%Y%m%d_%H%M%S')}", )
         os.makedirs(args.output_dir)
 
     model = GLUETransformer(args)
